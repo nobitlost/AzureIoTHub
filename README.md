@@ -368,7 +368,7 @@ The method returns *Boolean*: `true` if the client is connected, `false` otherwi
 
 This method [sends a message to Azure IoT Hub](https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-mqtt-support#sending-device-to-cloud-messages).
 
-The method returns nothing. A result of the sending may be obtained via the [*onSent*](#callback-onsentmessage-error) callback, if specified in this method.
+The method returns nothing. A result of the sending may be obtained via the [*onSent*](#callback-onsenterror-message) callback, if specified in this method.
 
 It is allowed to send a new message while the previous send operation is not completed yet. 
 Maximum amount of pending operations is defined by the [client settings](#optional-settings).
@@ -380,16 +380,16 @@ If *message* parameter is `null` or has incompatible type, the method will throw
 | Parameter | Data Type | Required? | Description |
 | --- | --- | --- | --- |
 | *message* | [AzureIoTHub.Message](#azureiothubmessage) | Yes | Message to send. |
-| *[onSent](#callback-onsentmessage-error)* | Function  | Optional | [Callback](#callback-onsentmessage-error) called when the message is considered as sent or an error happens. |
+| *[onSent](#callback-onsenterror-message)* | Function  | Optional | [Callback](#callback-onsenterror-message) called when the message is considered as sent or an error happens. |
 
-#### Callback: onSent(*message, error*) ####
+#### Callback: onSent(*error, message*) ####
 
 This callback is called when the message is considered as sent or an error happens.
 
 | Parameter | Data Type | Description |
 | --- | --- | --- |
-| *message* | [AzureIoTHub.Message](#azureiothubmessage) | The original *message* passed to [sendMessage()](#sendmessagemessage-onsent) method. |
 | *[error](#errorcode)* | Integer | `0` if the operation is completed successfully, an [error code](#error-code) otherwise. |
+| *message* | [AzureIoTHub.Message](#azureiothubmessage) | The original *message* passed to [sendMessage()](#sendmessagemessage-onsent) method. |
 
 #### Example ####
 
@@ -401,7 +401,7 @@ client.sendMessage(message1);
 // Send a string with a callback
 message2 <- AzureIoTHub.Message("This is another string");
 
-function onSent(msg, err) {
+function onSent(err, msg) {
     if (err != 0) {
         server.error("Message sending failed: " + err);
         server.log("Trying to send again...");
@@ -517,7 +517,7 @@ This callback is called when [Device Twin properties are retrieved](https://docs
 
 | Parameter | Data Type | Description |
 | --- | --- | --- |
-| *[error](#errorcode)* | Integer | `0` if the operation is completed successfully, an [error code](#error-code) otherwise. |
+| *[error](#error-code)* | Integer | `0` if the operation is completed successfully, an [error code](#error-code) otherwise. |
 | *reportedProps* | Table | Key-value table with the reported properties and their version. This parameter should be ignored if *error* is not `0`. Every key is always a *String* with the name of the property. The value is the corresponding value of the property. Keys and values are fully application specific. |
 | *desiredProps* | Table | Key-value table with the desired properties and their version. This parameter should be ignored if *error* is not `0`. Every key is always a *String* with the name of the property. The value is the corresponding value of the property. Keys and values are fully application specific. |
 
@@ -540,7 +540,7 @@ client.retrieveTwinProperties(onRetrieved);
 
 This method [updates Device Twin reported properties](https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-mqtt-support#update-device-twins-reported-properties).
 
-The method returns nothing. A result of the operation may be obtained via the [*onUpdated*](#callback-onupdatedprops-error) callback, if specified in this method.
+The method returns nothing. A result of the operation may be obtained via the [*onUpdated*](#callback-onupdatederror-props) callback, if specified in this method.
 
 The method may be called only if Twins functionality is enabled.
 
@@ -552,23 +552,23 @@ If *props* parameter is `null` or has incompatible type, the method will throw a
 | Parameter | Data Type | Required? | Description |
 | --- | --- | --- | --- |
 | *props* | Table | Yes | Key-value table with the reported properties. Every key is always a *String* with the name of the property. The value is the corresponding value of the property. Keys and values are fully application specific. |
-| *[onUpdated](#callback-onupdatedprops-error)* | Function  | Optional | [Callback](#callback-onupdatedprops-error) called when the operation is completed or an error happens. |
+| *[onUpdated](#callback-onupdatederror-props)* | Function  | Optional | [Callback](#callback-onupdatederror-props) called when the operation is completed or an error happens. |
 
-#### Callback: onUpdated(*props, error*) ####
+#### Callback: onUpdated(*error, props*) ####
 
-This callback is called when the message is considered as sent or an error happens.
+This callback is called when [Device Twin properties are updated](https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-mqtt-support#update-device-twins-reported-properties).
 
 | Parameter | Data Type | Description |
 | --- | --- | --- |
+| *[error](#error-code)* | Integer | `0` if the operation is completed successfully, an [error code](#error-code) otherwise. |
 | *props* | Table | The original properties passed to the [updateTwinProperties()](#updatetwinpropertiesprops-onupdated) method. |
-| *[error](#errorcode)* | Integer | `0` if the operation is completed successfully, an [error code](#error-code) otherwise. |
 
 #### Example ####
 
 ```squirrel
 props <- {"exampleProp": "val"};
 
-function onUpdated(props, err) {
+function onUpdated(err, props) {
     if (err != 0) {
         server.error("Twin properties update failed: " + err);
     } else {
@@ -584,7 +584,7 @@ client.updateTwinProperties(props, onUpdated);
 
 This method enables or disables [Azure IoT Hub Direct Methods](https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-direct-methods).
 
-To enable the feature, specify the [*onMethod*](#callback-onmethodname-params) callback. To disable the feature, specify `null` as that callback.
+To enable the feature, specify the [*onMethod*](#callback-onmethodname-params-reply) callback. To disable the feature, specify `null` as that callback.
 
 The feature is automatically disabled every time the client is disconnected. It should be re-enabled after every new connection, if needed.
 
@@ -592,28 +592,54 @@ The method returns nothing. A result of the operation may be obtained via the [*
 
 | Parameter | Data Type | Required? | Description |
 | --- | --- | --- | --- |
-| *[onMethod](#callback-onmethodname-params)* | Function  | Yes | [Callback](#callback-onmethodname-params) called every time a direct method is called by Azure IoT Hub. `null` disables the feature. |
+| *[onMethod](#callback-onmethodname-params-reply)* | Function  | Yes | [Callback](#callback-onmethodname-params-reply) called every time a direct method is called by Azure IoT Hub. `null` disables the feature. |
 | *[onDone](#callback-ondoneerror)* | Function  | Optional | [Callback](#callback-ondoneerror) called when the operation is completed or an error happens. |
 
-#### Callback: onMethod(*name, params*) ####
+#### Callback: onMethod(*name, params, reply*) ####
 
 This callback is called every time a [Direct Method](https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-mqtt-support#respond-to-a-direct-method) is called by Azure IoT Hub.
-
-The callback **must** return an instance of the [AzureIoTHub.DirectMethodResponse](#azureiothubdirectmethodresponse).
 
 | Parameter | Data Type | Description |
 | --- | --- | --- |
 | *name* | String | Name of the called Direct Method. |
 | *params* | Table | Key-value table with the input parameters of the called Direct Method. Every key is always a *String* with the name of the input parameter. The value is the corresponding value of the input parameter. Keys and values are fully application specific. |
+| *reply* | Function | This [callback](#callback-replydata-onreplysent) should be called to send a reply to the direct method call. |
+
+#### Callback: reply(*data[, onReplySent]*) ####
+
+This [callback](#callback-replydata-onreplysent) should be called by application to [send a reply to the direct method call](https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-mqtt-support#respond-to-a-direct-method).
+
+| Parameter | Data Type | Required? | Description |
+| --- | --- | --- | --- |
+| *data* | [AzureIoTHub.DirectMethodResponse](#azureiothubdirectmethodresponse) | Yes | Data to send in response to the direct method call. |
+| *onReplySent* | Function | Optional | [Callback](#callback-onreplysenterror-data) called when the operation is completed or an error happens. |
+
+#### Callback: onReplySent(*error, data*) ####
+
+This callback is called every time a [Direct Method](https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-mqtt-support#respond-to-a-direct-method) is called by Azure IoT Hub.
+
+| Parameter | Data Type | Description |
+| --- | --- | --- |
+| *[error](#error-code)* | Integer | `0` if the operation is completed successfully, an [error code](#error-code) otherwise. |
+| *data* | [AzureIoTHub.DirectMethodResponse](#azureiothubdirectmethodresponse) | The original data passed to the [reply()](#callback-replydata-onreplysent) callback. |
 
 #### Example ####
 
 ```squirrel
-function onMethod(name, params) {
+function onReplySent(err, data) {
+    if (err != 0) {
+        server.error("Sending reply failed: " + err);
+    } else {
+        server.log("Reply was sent successfully");
+    }
+}
+
+function onMethod(name, params, reply) {
     server.log("Direct Method called. Name = " + name);
     local responseStatusCode = 200;
     local responseBody = {"example" : "val"};
-    return AzureIoTHub.DirectMethodResponse(responseStatusCode, responseBody);
+    local response = AzureIoTHub.DirectMethodResponse(responseStatusCode, responseBody);
+    reply(response, onReplySent);
 }
 
 function onDone(err) {
